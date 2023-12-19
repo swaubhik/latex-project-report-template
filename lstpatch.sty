@@ -1,0 +1,314 @@
+\ProvidesFile{lstpatch.sty}[2002/10/13 1.0i (Carsten Heinz)]
+\lst@CheckVersion{1.0}
+{\typeout{^^J%
+    ***^^J%
+    *** This is a patch for `listings.sty' version 1.0, but^^J%
+    *** you're using version \lst@version.^^J%
+    ***^^J
+    *** Patch file not loaded.^^J%
+    ***^^J}%
+    \endinput
+}
+%
+% 1) Define the missing control sequences. (Not needed any more.)
+\def\lstpatch@comments{%
+    \global\let\lst@CommentB\lst@DefDelimB
+    \global\let\lst@CommentE\lst@DefDelimE}
+%
+% 2) Define  \lst@commentmode.
+\lst@NewMode\lst@commentmode
+%
+% 3) Introduce \lst@ifxpodcomment as master-clause and define 1.0 style
+%    contents for SelectCharTable.
+\def\lstpatch@pod{%
+\lst@Key{podcomment}{false}[t]{\lstKV@SetIf{##1}\lst@ifxpodcomment}%
+\lst@AddToHookExe{SetLanguage}{\let\lst@ifxpodcomment\iffalse}%
+\lst@AddToHook{SelectCharTable}%
+    {\lst@ifxpodcomment
+         \lst@CArgX =\relax\lst@DefDelimB{}{}%
+           {\ifnum\@tempcnta=\z@
+                \lst@ifprintpod\else
+                    \def\lst@bnext{\lst@BeginDropOutput\lst@PODmode}%
+                    \expandafter\expandafter\expandafter\@gobblethree
+                \fi
+            \else
+               \expandafter\@gobblethree
+            \fi}%
+           \lst@BeginComment\lst@PODmode{{\lst@commentstyle}}% modified
+         \lst@CArgX =cut\^^M\relax\lst@DefDelimE
+           {\lst@CalcColumn}%
+           {\ifnum\@tempcnta=\z@\else
+                \expandafter\@gobblethree
+            \fi}%
+           {}%
+           \lst@EndComment\lst@PODmode
+	 \fi}%
+}
+%
+% 4) Redefine lineskip like podcomment above and don't use \strip@pt
+%    together with \divide.
+\def\lstpatch@lineshape{%
+\lst@Key{lineskip}{\z@}{\def\lst@xlineskip{##1\relax}}
+\lst@AddToHook{Init}
+    {\ifdim\z@=\lst@xlineskip\else
+         \@tempdima\baselineskip
+         \advance\@tempdima\lst@xlineskip
+         \multiply\@tempdima\@cclvi
+         \divide\@tempdima\baselineskip\relax
+         \multiply\@tempdima\@cclvi
+         \edef\baselinestretch{\strip@pt\@tempdima}%
+         \selectfont
+     \fi}%
+% 11) Add \kern-\lst@xleftmargin.
+\gdef\lst@discretionary{%
+    \discretionary{\let\space\lst@spacekern\lst@prebreak}%
+                  {\llap{\lsthk@EveryLine
+                   \kern\lst@breakcurrindent\kern-\lst@xleftmargin}%
+                   \let\space\lst@spacekern\lst@postbreak}{}}%
+}
+% Back to 4): Insert \par for vertical mode.
+\def\lstpatch@fancyvrb{%
+\gdef\lstFV@VerbatimEnd{%
+    \ifx\FancyVerbFormatLine\lstFV@FancyVerbFormatLine
+        \global\setbox\lstFV@gtempboxa\box\@tempboxa
+        \global\let\@gtempa\FV@ProcessLine
+        \lst@mode\lst@Pmode
+        \lst@DeInit
+        \let\FV@ProcessLine\@gtempa
+        \setbox\@tempboxa\box\lstFV@gtempboxa
+        \par % modified
+    \fi}%
+% 9) Redefined \lstFV@VerbatimBegin removed.
+% b) Refine conversion definitions to either work as usual or to ...
+\gdef\lst@FVConvert{\@tempcnta\z@ \lst@FVConvertO@}%
+\gdef\lst@FVConvertO@{%
+    \ifcase\@tempcnta \expandafter
+        \futurelet\expandafter\@let@token\expandafter\lst@FVConvert@@
+    \else
+% append arguments as they are.
+        \expandafter\lst@FVConvertO@a
+    \fi}%
+\gdef\lst@FVConvertO@a##1{%
+    \lst@lAddTo\lst@arg{{##1}}\advance\@tempcnta\m@ne
+    \lst@FVConvertO@}%
+% Here, ...
+\gdef\lst@FVConvert@##1{%
+    \ifx \@nil##1\else
+       \if\relax\noexpand##1%
+          \lst@lAddTo\lst@arg{\lst@OutputLostSpace\lst@PrintToken##1}%
+% ... actually here, we check for commands with arguments and set the
+% value of \@tempcnta as required.
+          \def\lst@temp####1,##1####2,####3####4\relax{%
+              \ifx####3\@empty \else \@tempcnta####2\relax \fi}%
+          \expandafter\lst@temp\lst@FVcmdparams,##1\z@,\@empty\relax
+       \else
+          \lccode`\~=`##1\lowercase{\lst@lAddTo\lst@arg~}%
+       \fi
+       \expandafter\lst@FVConvertO@
+    \fi}
+% Eventually we define user keys to adjust \lst@FVcmdparams. The base
+% set of commands and parameter numbers was provided by Denis Girou.
+\lst@Key{fvcmdparams}%
+% D.G. suggestion begin - 2002/05/31
+    {\overlay\@ne}%
+% D.G. suggestion end
+    {\def\lst@FVcmdparams{,##1}}%
+\lst@Key{morefvcmdparams}\relax{\lst@lAddTo\lst@FVcmdparams{,##1}}%
+}
+%
+% 5) Extend \lst@SaveToken to save \lst@lastother.
+\def\lst@SaveToken{%
+    \global\let\lst@gthestyle\lst@thestyle
+    \global\let\lst@glastother\lst@lastother
+    \xdef\lst@RestoreToken{\noexpand\lst@token{\the\lst@token}%
+                           \noexpand\lst@length\the\lst@length\relax
+                           \noexpand\let\noexpand\lst@thestyle
+                                        \noexpand\lst@gthestyle
+                           \noexpand\let\noexpand\lst@lastother
+                                        \noexpand\lst@glastother}%
+}
+%
+% 6) Assign \lst@do@noligs to \do.
+\def\lst@SelectCharTable{%
+    \lst@SelectStdCharTable
+    \lst@ifactivechars
+        \catcode9\active \catcode12\active \catcode13\active
+        \@tempcnta=32\relax
+        \@whilenum\@tempcnta<128\do
+            {\catcode\@tempcnta\active\advance\@tempcnta\@ne}%
+    \fi
+    \lst@ifec \lst@DefEC \fi
+    \let\do\lst@do@noligs \verbatim@nolig@list % modified
+    \lsthk@SelectCharTable
+    \lst@DeveloperSCT
+    \ifx\lst@Backslash\relax\else
+        \lst@LetSaveDef{"5C}\lsts@backslash\lst@Backslash
+    \fi}
+% 4)+6) And we need correct versions of \lst@do@noligs[@].
+\def\lst@do@noligs#1{%
+    \begingroup \lccode`\~=`#1\lowercase{\endgroup
+    \lst@do@noligs@~}}
+\def\lst@do@noligs@#1{%
+    \expandafter\expandafter\expandafter\def
+    \expandafter\expandafter\expandafter#1%
+    \expandafter\expandafter\expandafter{\expandafter\lst@NoLig#1}}
+%
+% 7) Make ^^M active.
+\def\lst@InputListing#1{%
+    \begingroup
+      \lsthk@PreSet \gdef\lst@intname{#1}%
+      \expandafter\lstset\expandafter{\lst@set}%
+      \lsthk@DisplayStyle
+      \catcode\active=\active % added
+      \lst@Init\relax \let\lst@gobble\z@
+      \lst@SkipToFirst
+      \lst@ifprint \def\lst@next{\input{#1}}%
+             \else \let\lst@next\@empty \fi
+      \lst@next
+      \lst@DeInit
+    \endgroup}
+%
+% 8) Replace \lst@Process{FormFeed|Tabulator}.
+\def\lst@ProcessFormFeedX{\lst@ProcessFormFeed}
+\def\lst@ProcessTabulatorX{\lst@ProcessTabulator}
+\def\lst@BOLGobble@#1{%
+    \let\lst@next#1%
+    \ifx \lst@next\relax\else
+    \ifx \lst@next\lst@MProcessListing\else
+    \ifx \lst@next\lst@ProcessFormFeedX\else
+    \ifx \lst@next\lstenv@backslash
+        \let\lst@next\lstenv@BOLGobble@@
+    \else
+        \let\lst@next\lst@BOLGobble@@
+        \ifx #1\lst@ProcessTabulatorX
+            \advance\@tempcnta-\lst@tabsize\relax
+            \ifnum\@tempcnta<\z@
+                \lst@length-\@tempcnta \lst@PreGotoTabStop
+            \fi
+        \else
+            \advance\@tempcnta\m@ne
+        \fi
+    \fi \fi \fi \fi
+    \lst@next}
+%
+% 10) Add some \@makeother to \lst@nfss@catcodes.
+\def\lst@nfss@catcodes{%
+    \lst@makeletter
+        ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\relax
+    \@makeother (\@makeother )\@makeother ,\@makeother :\@makeother &%
+    \@makeother 0\@makeother 1\@makeother 2\@makeother 3\@makeother 4%
+    \@makeother 5\@makeother 6\@makeother 7\@makeother 8\@makeother 9%
+    \@makeother =\lsts@nfss@catcodes}
+%
+% 12) and 13) Deactivate \everypar and use normal baseline parameters.
+\lst@AddToHook{DeInit}{\everypar{}\normalbaselines}
+%
+% 14) Define \lst@entermodes.
+\let\lst@entermodes\@empty
+%
+% 16) Insert [ and ] in replacement text.
+\def\lst@Delim@option[#1]{\def\lst@arg{[#1]}\lst@Delim@delim}
+%
+% 17) Just empty `frame' and top, right, bottom, and left shape.
+\lst@AddToHook{TextStyle}
+   {\let\lst@frame\@empty
+    \let\lst@frametshape\@empty
+    \let\lst@framershape\@empty
+    \let\lst@framebshape\@empty
+    \let\lst@framelshape\@empty}
+%
+% 18) Execute \lst@BeginKC and \lst@BeginKCS outside the two groups.
+%     Modify third argument to \lst@BeginComment to work properly.
+\def\lstpatch@keywordcomments{%
+\gdef\lst@BeginKC{\aftergroup\aftergroup\aftergroup\lst@BeginKC@}%
+\gdef\lst@BeginKC@{%
+    \lst@ResetToken
+    \lst@BeginComment\lst@KCmode{{\lst@commentstyle}\lst@modetrue}\@empty}%
+\gdef\lst@BeginKCS{\aftergroup\aftergroup\aftergroup\lst@BeginKCS@}%
+\gdef\lst@BeginKCS@{%
+    \lst@ResetToken
+    \lst@BeginComment\lst@KCSmode{{\lst@commentstyle}\lst@modetrue}\@empty}%
+\gdef\lst@EndKC{\lst@SaveToken \lst@LeaveMode \lst@RestoreToken
+    \let\lst@thestyle\lst@identifierstyle \lsthk@Output}% renew style selection
+}
+%
+% 19) Init \lst@directives.
+\def\lstpatch@directives{%
+    \global\let\lst@directives\@empty}
+%
+% 20) Use new prefix for a family -- the now initialized \lst@directives
+%     clashes with the default.
+\def\lstpatch@keywords{%
+\gdef\lst@ProvideFamily##1{%
+    \@ifundefined{lstfam@##1\ifnum\@tempcnta=\@ne\else \the\@tempcnta \fi}%
+    {\@namedef{lstfam@##1\ifnum\@tempcnta=\@ne\else \the\@tempcnta \fi}{}%
+     \expandafter\expandafter\expandafter\lst@ProvideFamily@
+         \csname\@lst @##1@data\endcsname
+         {\ifnum\@tempcnta=\@ne\else \the\@tempcnta \fi}}%
+    {}}%
+}
+% 21) Define \thelstnumber every listing via \def.
+\@namedef{lstpatch@021}{%
+    \lst@AddToHook{Init}{\def\thelstnumber{\thelstlabel}}%
+}
+% 22) Reset the registers in PreInit hook
+\lst@AddToHook{PreInit}
+  {\rightskip\z@ \leftskip\z@ \parfillskip\z@ plus 1fil}
+%
+% 23) Add \let\lst@lastother\@empty
+\lst@AddToHook{SelectCharTable}{%
+    \lst@ifbstring
+        \lst@CArgX \\\\\relax \lst@CDefX{}%
+           {\lst@ProcessOther\lstum@backslash
+            \lst@ProcessOther\lstum@backslash
+            \let\lst@lastother\@empty}%
+           {}%
+    \fi}
+%
+% a) Just declare the option.
+\DeclareOption{final}{\let\lst@ifdraft\iffalse}
+%
+% c) Define contentstyle and use it.
+\def\lstpatch@html{%
+\lst@Key{contentstyle}{}{\def\lst@contentstyle{##1}}%
+\lst@AddToHook{Init}%
+    {\ifx\lst@DefInside\@empty\else
+         \let\lst@tagstyle\lst@identifierstyle
+         \let\lst@identifierstyle\lst@contentstyle
+     \fi}%
+\lst@AddToHook{Output}%
+    {\ifnum\lst@mode=\lst@insidemode
+% 15) Check for keywordstyle.
+     \ifx\lst@thestyle\lst@gkeywords@sty\else
+         \lst@ifusekeysinside \let\lst@thestyle\lst@tagstyle
+                   \else \let\lst@thestyle\lst@gkeywords@sty \fi
+     \fi\fi}%
+\lst@AddToHook{OutputOther}%
+    {\lst@ifmode\else \ifnum\lst@mode=\lst@insidemode\else
+     \ifx\lst@DefInside\@empty\else
+         \let\lst@thestyle\lst@contentstyle
+     \fi
+     \fi\fi}%
+}
+%
+% d) Define key and adjust \lst@SkipOrPrintLabel.
+\def\lstpatch@labels{%
+\lst@Key{numberfirstline}{f}[t]{\lstKV@SetIf{##1}\lst@ifnumberfirstline}%
+\gdef\lst@numberfirstlinefalse{\let\lst@ifnumberfirstline\iffalse}
+\gdef\lst@SkipOrPrintLabel{%
+    \ifnum\lst@skipnumbers=\z@
+        \global\advance\lst@skipnumbers-\lst@stepnumber\relax
+        \lst@PlaceNumber
+        \lst@numberfirstlinefalse
+    \else
+        \lst@ifnumberfirstline
+            \lst@PlaceNumber
+            \lst@numberfirstlinefalse
+        \fi
+    \fi
+    \global\advance\lst@skipnumbers\@ne}%
+}
+%%
+\endinput
+%%
+%% End of file `lstpatch.sty'.
